@@ -15,9 +15,8 @@ const navigationList = [
 
 const Account = () => {
   return (
-    <div className="container mx-auto border flex items-center justify-center">
+    <div className="container mx-auto flex items-center justify-center">
       <div className="flex flex-col items-center text-center space-y-2">
-        <h1 className="text-xl font-bold">Navigation Links</h1>
         {navigationList.map((item) => (
           <Link
             key={item.name}
