@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation"; 
 
 import {
   Card,
@@ -41,8 +42,27 @@ const signUpSchema = z
 
 type SignUpValues = z.infer<typeof signUpSchema>;
 
+// Utility function
+const splitName = (
+  fullName: string
+): { firstName: string; lastName: string } => {
+  const trimmedName = fullName.trim();
+  const nameParts = trimmedName.split(/\s+/);
+
+  if (nameParts.length === 0) {
+    return { firstName: "", lastName: "" };
+  } else if (nameParts.length === 1) {
+    return { firstName: nameParts[0], lastName: "" };
+  } else {
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(" ");
+    return { firstName, lastName };
+  }
+};
+
 const SignUp = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   const form = useForm<SignUpValues>({
     resolver: zodResolver(signUpSchema),
@@ -58,23 +78,32 @@ const SignUp = () => {
     setIsLoading(true);
 
     try {
+      const { firstName, lastName } = splitName(data.name);
+
+      const payload = {
+        firstName,
+        lastName,
+        email: data.email,
+        password: data.password,
+      };
+
       const response = await fetch("api/users", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
 
+      const responseData = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to create account");
+        throw new Error(responseData.message || "Failed to create account");
       }
 
-      toast.success("Account created successfully!");
+      toast.success(responseData.message || "Account created successfully!");
 
-      // Optionally redirect to sign-in page after successful registration
-      // router.push('/sign-in');
+      router.push(`/verify?email=${encodeURIComponent(data.email)}`);
     } catch (error) {
       toast.error(
         error instanceof Error
