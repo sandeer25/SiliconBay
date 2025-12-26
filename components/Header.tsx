@@ -29,7 +29,7 @@ const Header = () => {
         <Link href="/">
           <div className='text-2xl font-bold p-4'>
               <span className="text-amber-500">Silicon</span>
-              <span className>Bay</span>
+              <span>Bay</span>
           </div>
         </Link>
 
