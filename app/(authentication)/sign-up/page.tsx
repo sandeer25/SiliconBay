@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
-import Link from "next/link";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation"; 
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import {
   Card,
@@ -28,6 +28,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
+import { LoaderCircle } from "lucide-react";
+
+// Zod schema for form validation
 const signUpSchema = z
   .object({
     name: z.string().min(2, "Name must be at least 2 characters"),
@@ -42,7 +45,7 @@ const signUpSchema = z
 
 type SignUpValues = z.infer<typeof signUpSchema>;
 
-// Utility function
+// Utility function to split full name into first and last names
 const splitName = (
   fullName: string
 ): { firstName: string; lastName: string } => {
@@ -62,8 +65,10 @@ const splitName = (
 
 const SignUp = () => {
   const [isLoading, setIsLoading] = useState(false);
+
   const router = useRouter();
 
+  // Initialize the form with react-hook-form and zod resolver
   const form = useForm<SignUpValues>({
     resolver: zodResolver(signUpSchema),
     defaultValues: {
@@ -87,7 +92,7 @@ const SignUp = () => {
         password: data.password,
       };
 
-      const response = await fetch("api/users", {
+      const response = await fetch("/api/users", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -101,15 +106,17 @@ const SignUp = () => {
         throw new Error(responseData.message || "Failed to create account");
       }
 
-      toast.success(responseData.message || "Account created successfully!");
+      console.log("Account succesfully created!");
 
       router.push(`/verify?email=${encodeURIComponent(data.email)}`);
+
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
           : "Account creation failed. Please try again."
       );
+      
     } finally {
       setIsLoading(false);
     }
@@ -191,7 +198,11 @@ const SignUp = () => {
               type="submit"
               disabled={isLoading}
             >
-              {isLoading ? "Creating Account..." : "Create Account"}
+              {isLoading ? (
+                <LoaderCircle className="animate-spin h-5 w-5 mx-auto" />
+              ) : (
+                "Create Account"
+              )}
             </Button>
           </form>
         </Form>
