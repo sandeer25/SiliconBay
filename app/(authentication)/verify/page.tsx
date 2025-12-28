@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
+import { set, z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 
@@ -25,6 +25,13 @@ import {
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useRouter, useSearchParams } from "next/navigation";
+import { AlertOctagon, LoaderCircle } from "lucide-react";
+
+type VerifyPayload = {
+  email: string;
+  code: string;
+};
 
 const verificationSchema = z.object({
   code: z
@@ -36,16 +43,76 @@ const verificationSchema = z.object({
 type VerificationValues = z.infer<typeof verificationSchema>;
 
 const VerifyCode = () => {
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  const router = useRouter();
+
+  const searchParams = useSearchParams();
+
+  const email = searchParams.get("email");
+  const verificationCode = searchParams.get("verificationCode");
+
+  if (!email) {
+    return (
+      <div className="p-4 h-64 w-md flex flex-col items-center space-y-4">
+        <div className="flex justify-center items-center gap-2 border border-red-500 rounded-2xl text-red-500 p-4">
+          <AlertOctagon />
+          <h2 className="text-xl font-medium">Invalid Access</h2>
+        </div>
+
+        <p className="text-gray-500 text-center">
+          Something missing in parameters. Please check your email box and use the link provided there to access
+        </p>
+
+        <p className="text-gray-500 text-center">
+          If you believe this is a mistake, please contact{" "}
+          <Link href={"#"} className="text-blue-600">
+            support
+          </Link>
+          .
+        </p>
+      </div>
+    );
+  }
+
   const form = useForm<VerificationValues>({
     resolver: zodResolver(verificationSchema),
     defaultValues: {
-      code: "",
+      code: verificationCode || "",
     },
   });
 
-  const onSubmit = (data: VerificationValues) => {
-    console.log("Verification code submitted:", data);
-    // Call your backend verify API here
+  const onSubmit = async (data: VerificationValues) => {
+    setIsLoading(true);
+
+    try {
+      const payload: VerifyPayload = {
+        email: email || "",
+        code: data.code,
+      };
+
+      const response = await fetch("/api/verify-account", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(responseData.message || "Verification failed");
+      }
+
+      console.log("Verification Successful!");
+
+      router.push("/sign-in");
+    } catch (error) {
+      console.error("Verification Error:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -63,7 +130,6 @@ const VerifyCode = () => {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-
             {/* Verification Code */}
             <FormField
               control={form.control}
@@ -74,7 +140,6 @@ const VerifyCode = () => {
                   <FormControl>
                     <Input
                       maxLength={6}
-                      placeholder="123456"
                       {...field}
                       onChange={(e) => {
                         // Only allow numbers
@@ -91,8 +156,13 @@ const VerifyCode = () => {
             <Button
               className="w-full mt-2 rounded-full bg-amber-600 hover:bg-amber-700"
               type="submit"
+              disabled={isLoading}
             >
-              Verify
+              {isLoading ? (
+                <LoaderCircle className="animate-spin h-5 w-5 mx-auto" />
+              ) : (
+                "Verify Account"
+              )}
             </Button>
           </form>
         </Form>
@@ -107,7 +177,10 @@ const VerifyCode = () => {
 
       <CardFooter>
         <div className="grid border-t pt-4 w-full gap-2">
-          <Link href="/sign-in" className="text-sm text-blue-600 hover:underline">
+          <Link
+            href="/sign-in"
+            className="text-sm text-blue-600 hover:underline"
+          >
             Back to Sign In
           </Link>
         </div>
