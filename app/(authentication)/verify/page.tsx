@@ -30,7 +30,7 @@ import { AlertOctagon, LoaderCircle } from "lucide-react";
 
 type VerifyPayload = {
   email: string;
-  code: string;
+  verificationCode: string;
 };
 
 const verificationSchema = z.object({
@@ -88,10 +88,10 @@ const VerifyCode = () => {
     try {
       const payload: VerifyPayload = {
         email: email || "",
-        code: data.code,
+        verificationCode: data.code,
       };
 
-      const response = await fetch("/api/verify-account", {
+      const response = await fetch("/api/verify", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
