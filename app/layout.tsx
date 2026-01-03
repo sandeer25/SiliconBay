@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Poppins, Roboto } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "sonner";
 
 // const poppins = Poppins({
 //   subsets: ["latin"],
@@ -22,6 +23,7 @@ const RootLayout = ({ children }: Readonly<{ children: React.ReactNode }>) => {
     <html lang="en">
       <body className={`${inter.className} antialiased`}>
         {children}
+        <Toaster position="top-right" richColors />
       </body>
     </html>
   );
