@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -25,6 +26,8 @@ import {
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { LoaderCircle } from "lucide-react";
+import { toast } from "sonner";
 
 const signInSchema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -34,6 +37,10 @@ const signInSchema = z.object({
 type SignInValues = z.infer<typeof signInSchema>;
 
 const SignIn = () => {
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  const router = useRouter();
+
   const form = useForm<SignInValues>({
     resolver: zodResolver(signInSchema),
     defaultValues: {
@@ -42,9 +49,45 @@ const SignIn = () => {
     },
   });
 
-  const onSubmit = (data: SignInValues) => {
-    console.log("Form submitted:", data);
-    // Add your API call here (login request)
+  const onSubmit = async (data: SignInValues) => {
+    setIsLoading(true);
+
+    try {
+      const payload = {
+        email: data.email,
+        password: data.password,
+      };
+
+      const response = await fetch("/api/auth/sign-in", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok || !responseData.status) {
+        toast.error(responseData.message || "Sign-in failed");
+        return;
+      }
+
+      localStorage.setItem("token", responseData.token);
+      localStorage.setItem("user", JSON.stringify(responseData.user));
+
+      toast.success("Signed in successfully!");
+
+      router.push("/");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Account creation failed. Please try again."
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -58,7 +101,6 @@ const SignIn = () => {
       <CardContent className="space-y-6">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-
             {/* Email */}
             <FormField
               control={form.control}
@@ -89,19 +131,40 @@ const SignIn = () => {
               )}
             />
 
-            <Button className="w-full mt-2 rounded-full bg-amber-600 hover:bg-amber-700" type="submit">
-              Sign In
+            <Button
+              className="w-full mt-2 rounded-full bg-amber-600 hover:bg-amber-700"
+              type="submit"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <LoaderCircle className="animate-spin h-5 w-5 mx-auto" />
+              ) : (
+                "Sign In"
+              )}
             </Button>
           </form>
         </Form>
 
-        <p className="text-sm text-gray-600">By signing in, you agree to SiliconBay's <Link href="/terms" className="text-blue-600 hover:underline">Terms of Service</Link> and <Link href="/privacy" className="text-blue-600 hover:underline">Privacy Policy</Link>.</p>
+        <p className="text-sm text-gray-600">
+          By signing in, you agree to SiliconBay's{" "}
+          <Link href="/terms" className="text-blue-600 hover:underline">
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="text-blue-600 hover:underline">
+            Privacy Policy
+          </Link>
+          .
+        </p>
       </CardContent>
 
       <CardFooter>
         <div className="grid border-t pt-4 w-full gap-2">
           <span className="font-bold text-sm">New to SiliconBay?</span>
-          <Link href="/sign-up" className="text-sm text-blue-600 hover:underline">
+          <Link
+            href="/sign-up"
+            className="text-sm text-blue-600 hover:underline"
+          >
             Create a free account
           </Link>
         </div>
