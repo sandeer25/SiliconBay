@@ -1,8 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { Suspense } from "react";
 import { useForm } from "react-hook-form";
-import { set, z } from "zod";
+import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 
@@ -42,15 +42,20 @@ const verificationSchema = z.object({
 
 type VerificationValues = z.infer<typeof verificationSchema>;
 
-const VerifyCode = () => {
+const VerifyCodeContent = () => {
   const [isLoading, setIsLoading] = React.useState(false);
-
   const router = useRouter();
-
   const searchParams = useSearchParams();
 
   const email = searchParams.get("email");
   const verificationCode = searchParams.get("verificationCode");
+
+  const form = useForm<VerificationValues>({
+    resolver: zodResolver(verificationSchema),
+    defaultValues: {
+      code: verificationCode || "",
+    },
+  });
 
   if (!email) {
     return (
@@ -61,7 +66,8 @@ const VerifyCode = () => {
         </div>
 
         <p className="text-gray-500 text-center">
-          Something missing in parameters. Please check your email box and use the link provided there to access
+          Something missing in parameters. Please check your email box and use
+          the link provided there to access
         </p>
 
         <p className="text-gray-500 text-center">
@@ -74,13 +80,6 @@ const VerifyCode = () => {
       </div>
     );
   }
-
-  const form = useForm<VerificationValues>({
-    resolver: zodResolver(verificationSchema),
-    defaultValues: {
-      code: verificationCode || "",
-    },
-  });
 
   const onSubmit = async (data: VerificationValues) => {
     setIsLoading(true);
@@ -106,7 +105,6 @@ const VerifyCode = () => {
       }
 
       console.log("Verification Successful!");
-
       router.push("/sign-in");
     } catch (error) {
       console.error("Verification Error:", error);
@@ -130,7 +128,6 @@ const VerifyCode = () => {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Verification Code */}
             <FormField
               control={form.control}
               name="code"
@@ -142,7 +139,6 @@ const VerifyCode = () => {
                       maxLength={6}
                       {...field}
                       onChange={(e) => {
-                        // Only allow numbers
                         const value = e.target.value.replace(/\D/g, "");
                         field.onChange(value);
                       }}
@@ -189,4 +185,17 @@ const VerifyCode = () => {
   );
 };
 
-export default VerifyCode;
+export default function VerifyCode() {
+  return (
+    <Suspense 
+      fallback={
+        <div className="flex flex-col items-center justify-center p-8">
+          <LoaderCircle className="animate-spin h-8 w-8 text-amber-600 mb-2" />
+          <p className="text-sm text-gray-500">Loading verification...</p>
+        </div>
+      }
+    >
+      <VerifyCodeContent />
+    </Suspense>
+  );
+}
