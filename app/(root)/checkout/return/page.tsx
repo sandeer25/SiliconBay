@@ -29,7 +29,7 @@ const ReturnPage = () => {
       }
 
       try {
-        const response = await requestBackend<{ order?: OrderPayload; data?: OrderPayload }>(`/orders/${orderId}`);
+        const response = await requestBackend<OrderPayload & { order?: OrderPayload; data?: OrderPayload }>(`/orders/${orderId}`);
         const payload = response?.order ?? response?.data ?? response;
         setOrder(payload ?? null);
         setStatus(String(payload?.status ?? "Processed"));
