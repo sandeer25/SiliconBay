@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { BadgeCheck, LayoutDashboard, ListChecks, ShieldCheck, Store, Users } from "lucide-react";
+import { BadgeCheck, LayoutDashboard, ShieldCheck, Store, Users } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { requestBackend } from "@/lib/backend";
@@ -19,7 +19,6 @@ const adminLinks = [
   { label: "Controls", href: "#controls" },
   { label: "Users", href: "#users" },
   { label: "Sellers", href: "#sellers" },
-  { label: "Data sources", href: "#sources" },
 ];
 
 const ADMIN_ACCESS_SNAPSHOT = { allowed: false, redirectTo: null as string | null };
@@ -87,7 +86,7 @@ const normalizeRows = (value: unknown, fallbackName: string): AdminRow[] => {
     const item = row as Record<string, unknown>;
 
     return {
-      id: item.id ?? index + 1,
+      id: String(item.id ?? index + 1),
       name: String(item.name ?? item.firstName ?? item.storeName ?? fallbackName),
       email: String(item.email ?? ""),
       status: String(item.status ?? item.role ?? "Active"),
@@ -99,7 +98,7 @@ const AdminPage = () => {
   const [users, setUsers] = useState<AdminRow[]>([]);
   const [sellers, setSellers] = useState<AdminRow[]>([]);
   const [form, setForm] = useState({ id: "", status: "Active" });
-  const [loadMessage, setLoadMessage] = useState("Loading admin data from the backend.");
+  const [loadMessage, setLoadMessage] = useState("");
   const access = useSyncExternalStore(subscribeToAuth, readAdminAccess, () => ADMIN_ACCESS_SNAPSHOT);
 
   useEffect(() => {
@@ -122,11 +121,9 @@ const AdminPage = () => {
 
         setUsers(normalizeRows(usersResponse, "User"));
         setSellers(normalizeRows(sellersResponse, "Seller"));
-        setLoadMessage("");
       } catch {
         setUsers([]);
         setSellers([]);
-        setLoadMessage("No admin records are available yet.");
       }
     };
 
@@ -193,27 +190,12 @@ const AdminPage = () => {
             ))}
           </div>
 
-          <div className="mt-6 rounded-xl border bg-gray-50 p-4 text-sm text-gray-700">
-            <div className="flex items-center gap-2 mb-2 font-semibold">
-              <ListChecks className="w-4 h-4 text-amber-600" />
-              Data sources
-            </div>
-            <p className="text-sm leading-6 text-gray-600">
-              Users and sellers load from the backend admin routes.
-            </p>
-          </div>
         </Card>
 
         <div className="space-y-6">
           {!access.allowed && !access.redirectTo ? (
             <div className="bg-white border p-4 text-sm text-gray-600">
               Loading admin access...
-            </div>
-          ) : null}
-
-          {loadMessage ? (
-            <div className="bg-amber-50 border border-amber-200 p-4 text-sm text-amber-900">
-              {loadMessage}
             </div>
           ) : null}
 
@@ -276,6 +258,7 @@ const AdminPage = () => {
                 </div>
               </div>
             </Card>
+            {loadMessage ? <p className="text-sm text-gray-600 mt-3">{loadMessage}</p> : null}
           </div>
 
           <div id="users" className="grid xl:grid-cols-2 gap-6">
@@ -344,23 +327,6 @@ const AdminPage = () => {
             </Card>
           </div>
 
-          <Card id="sources" className="p-6 border shadow-sm">
-            <h2 className="text-xl font-semibold mb-4">Data Sources</h2>
-            <div className="grid md:grid-cols-2 gap-4 text-sm text-gray-700">
-              <div className="rounded-xl border bg-gray-50 p-4">
-                GET /admin/users for the user grid.
-              </div>
-              <div className="rounded-xl border bg-gray-50 p-4">
-                GET /admin/sellers for the seller grid.
-              </div>
-              <div className="rounded-xl border bg-gray-50 p-4">
-                PUT /admin/users/:id/status updates a user.
-              </div>
-              <div className="rounded-xl border bg-gray-50 p-4">
-                PUT /admin/sellers/:id/status updates a seller.
-              </div>
-            </div>
-          </Card>
         </div>
       </div>
     </div>
