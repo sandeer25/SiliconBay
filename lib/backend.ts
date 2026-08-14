@@ -42,7 +42,12 @@ export const requestBackend = async <T>(
   path: string,
   init: RequestInit = {}
 ): Promise<T> => {
-  const response = await fetch(`${BACKEND_PROXY_BASE}${path}`, {
+  const isServer = typeof window === "undefined";
+  const url = isServer
+    ? `${BACKEND_BASE_URL}${path}`
+    : `${BACKEND_PROXY_BASE}${path}`;
+
+  const response = await fetch(url, {
     cache: "no-store",
     ...init,
     headers: withAuthHeaders({
