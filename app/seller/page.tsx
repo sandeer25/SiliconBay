@@ -214,7 +214,7 @@ const SellerPage = () => {
 
         if (rawProfile) {
           setProfile({
-            id: rawProfile.id ?? "",
+            id: String(rawProfile.id ?? ""),
             companyName: String(rawProfile.companyName ?? rawProfile.name ?? ""),
             companyEmail: String(rawProfile.companyEmail ?? rawProfile.email ?? ""),
             companyMobile: String(rawProfile.companyMobile ?? rawProfile.phone ?? ""),
@@ -232,7 +232,7 @@ const SellerPage = () => {
 
         setSellerOptions(
           sellerRows.map((row) => ({
-            id: row.id ?? "",
+            id: String(row.id ?? ""),
             companyName: String(row.companyName ?? row.name ?? "Seller"),
           }))
         );
