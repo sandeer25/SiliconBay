@@ -31,57 +31,55 @@ const Overview = () => {
     returns: 0,
     addresses: 0,
   });
-  const [loadMessage, setLoadMessage] = useState("Account summary is loading from your backend data.");
 
   useEffect(() => {
     const loadDashboard = async () => {
-      try {
-        const [ordersResponse, instrumentsResponse, returnsResponse, addressesResponse] = await Promise.all([
-          requestBackend<Record<string, unknown>>("/orders"),
-          requestBackend<Record<string, unknown>>("/payments/instruments"),
-          requestBackend<Record<string, unknown>>("/returns"),
-          requestBackend<Record<string, unknown>>("/addresses"),
-        ]);
+      const [ordersResult, instrumentsResult, returnsResult, addressesResult] = await Promise.allSettled([
+        requestBackend<Record<string, unknown>>("/orders"),
+        requestBackend<Record<string, unknown>>("/payments/instruments"),
+        requestBackend<Record<string, unknown>>("/returns"),
+        requestBackend<Record<string, unknown>>("/addresses"),
+      ]);
 
-        const rawOrders = Array.isArray(ordersResponse)
-          ? ordersResponse
-          : Array.isArray((ordersResponse as { orders?: unknown[] }).orders)
-            ? (ordersResponse as { orders: unknown[] }).orders
-            : [];
+      const ordersResponse = ordersResult.status === "fulfilled" ? ordersResult.value : null;
+      const instrumentsResponse = instrumentsResult.status === "fulfilled" ? instrumentsResult.value : null;
+      const returnsResponse = returnsResult.status === "fulfilled" ? returnsResult.value : null;
+      const addressesResponse = addressesResult.status === "fulfilled" ? addressesResult.value : null;
 
-        setSummary({
-          orders: rawOrders.slice(0, 5).map((entry, index) => {
-            const order = entry as Record<string, unknown>;
+      const rawOrders = Array.isArray(ordersResponse)
+        ? ordersResponse
+        : Array.isArray((ordersResponse as { orders?: unknown[] } | null)?.orders)
+          ? (ordersResponse as { orders: unknown[] }).orders
+          : [];
 
-            return {
-              id: String(order.id ?? order.orderId ?? `ORD-${index + 1}`),
-              status: String(order.status ?? "Processing"),
-              total: String(order.total ?? order.amount ?? "$0.00"),
-              date: String(order.date ?? order.createdAt ?? "Today"),
-            };
-          }),
-          instruments: Array.isArray((instrumentsResponse as { instruments?: unknown[] } | null)?.instruments)
-            ? (instrumentsResponse as { instruments: unknown[] }).instruments.length
-            : Array.isArray(instrumentsResponse)
-              ? instrumentsResponse.length
-              : 0,
-          returns: Array.isArray((returnsResponse as { returns?: unknown[] } | null)?.returns)
-            ? (returnsResponse as { returns: unknown[] }).returns.length
-            : Array.isArray(returnsResponse)
-              ? returnsResponse.length
-              : 0,
-          addresses: Array.isArray((addressesResponse as { addresses?: unknown[] } | null)?.addresses)
-            ? (addressesResponse as { addresses: unknown[] }).addresses.length
-            : Array.isArray(addressesResponse)
-              ? addressesResponse.length
-              : 0,
-        });
+      setSummary({
+        orders: rawOrders.slice(0, 5).map((entry, index) => {
+          const order = entry as Record<string, unknown>;
 
-        setLoadMessage("");
-      } catch {
-        setSummary({ orders: [], instruments: 0, returns: 0, addresses: 0 });
-        setLoadMessage("No account summary data is available right now.");
-      }
+          return {
+            id: String(order.id ?? order.orderId ?? `ORD-${index + 1}`),
+            status: String(order.status ?? "Processing"),
+            total: String(order.total ?? order.amount ?? "$0.00"),
+            date: String(order.date ?? order.createdAt ?? "Today"),
+          };
+        }),
+        instruments: Array.isArray((instrumentsResponse as { instruments?: unknown[] } | null)?.instruments)
+          ? (instrumentsResponse as { instruments: unknown[] }).instruments.length
+          : Array.isArray(instrumentsResponse)
+            ? instrumentsResponse.length
+            : 0,
+        returns: Array.isArray((returnsResponse as { returns?: unknown[] } | null)?.returns)
+          ? (returnsResponse as { returns: unknown[] }).returns.length
+          : Array.isArray(returnsResponse)
+            ? returnsResponse.length
+            : 0,
+        addresses: Array.isArray((addressesResponse as { addresses?: unknown[] } | null)?.addresses)
+          ? (addressesResponse as { addresses: unknown[] }).addresses.length
+          : Array.isArray(addressesResponse)
+            ? addressesResponse.length
+            : 0,
+      });
+
     };
 
     loadDashboard();
@@ -121,12 +119,6 @@ const Overview = () => {
         </div>
       </Card>
 
-      {loadMessage ? (
-        <div className="bg-amber-50 border border-amber-200 p-4 text-sm text-amber-900">
-          {loadMessage}
-        </div>
-      ) : null}
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => {
           const Icon = stat.icon;
@@ -165,15 +157,6 @@ const Overview = () => {
             })}
           </div>
 
-          <div className="mt-6 rounded-xl border bg-gray-50 p-4 text-sm text-gray-700">
-            <div className="flex items-center gap-2 mb-2 font-semibold">
-              <ShieldCheck className="w-4 h-4 text-amber-600" />
-              Account data sources
-            </div>
-            <p className="text-sm text-gray-600 leading-6">
-              Orders, payment methods, returns, and addresses are loaded from the backend when available.
-            </p>
-          </div>
         </Card>
 
         <div className="space-y-6">

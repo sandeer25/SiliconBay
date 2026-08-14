@@ -41,17 +41,14 @@ const normalizeFeedback = (value: unknown): FeedbackRow[] => {
 
 const Feedback = () => {
   const [feedbacks, setFeedbacks] = useState<FeedbackRow[]>([]);
-  const [loadMessage, setLoadMessage] = useState("Loading feedback records from the backend.");
 
   useEffect(() => {
     const loadFeedback = async () => {
       try {
         const response = await requestBackend<Record<string, unknown>>("/feedback");
         setFeedbacks(normalizeFeedback(response));
-        setLoadMessage("");
       } catch {
         setFeedbacks([]);
-        setLoadMessage("No feedback records are available yet.");
       }
     };
 
@@ -95,12 +92,6 @@ const Feedback = () => {
         <p className="text-sm text-gray-600 mt-1">Share your experience and help other customers make informed decisions</p>
       </div>
 
-      {loadMessage ? (
-        <div className="bg-amber-50 border border-amber-200 p-4 text-sm text-amber-900">
-          {loadMessage}
-        </div>
-      ) : null}
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => {
           const Icon = stat.icon;
@@ -118,18 +109,6 @@ const Feedback = () => {
             </div>
           );
         })}
-      </div>
-
-      <div className="bg-white border p-4">
-        <div className="flex gap-3">
-          <MessageSquare className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-          <div>
-            <h3 className="font-semibold text-gray-900 mb-1">Feedback records</h3>
-            <p className="text-sm text-gray-600">
-              Reviews are loaded from the backend when available. No hardcoded sample feedback is shown here.
-            </p>
-          </div>
-        </div>
       </div>
 
       <div className="bg-white border">

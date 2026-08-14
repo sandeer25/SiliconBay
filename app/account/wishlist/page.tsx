@@ -94,6 +94,18 @@ const Wishlist = () => {
     }
   };
 
+  const handleShare = async () => {
+    if (visibleItems.length === 0) {
+      return;
+    }
+
+    const payload = visibleItems
+      .map((item) => `${item.name} - ${item.price > 0 ? `$${item.price.toFixed(2)}` : "Unavailable"}`)
+      .join("\n");
+
+    await navigator.clipboard.writeText(payload);
+  };
+
   return (
     <div className="flex-1 space-y-6 mb-20">
       <div className="bg-white border p-4">
@@ -138,7 +150,7 @@ const Wishlist = () => {
             <input value={query} onChange={(event) => setQuery(event.target.value)} type="text" placeholder="Search wishlist items..." className="w-full pl-10 pr-4 py-2 border focus:outline-none focus:ring-2 focus:ring-amber-500" />
           </div>
           <div className="flex gap-2">
-            <button className="px-4 py-2 border bg-white hover:bg-gray-50 flex items-center gap-2">
+            <button onClick={handleShare} className="px-4 py-2 border bg-white hover:bg-gray-50 flex items-center gap-2">
               <Share2 className="w-4 h-4" />
               Share
             </button>
@@ -183,7 +195,7 @@ const Wishlist = () => {
                     <div className="flex items-center gap-2">
                       <button
                         disabled={!item.inStock}
-                        onClick={() => addToCart({ id: item.id, name: item.name, price: item.price, image: item.image, inStock: item.inStock, category: item.category })}
+                        onClick={() => addToCart({ id: item.id, name: item.name, price: item.price, image: item.image, stock: item.inStock ? 1 : 0 })}
                         className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 p-2 disabled:text-gray-400 disabled:cursor-not-allowed"
                       >
                         <ShoppingCart className="w-4 h-4" />
