@@ -26,6 +26,8 @@ const normalizeProduct = (source: Product | null): Product | null => {
     const availableQty = Number(source.availableQty ?? source.stock ?? 0);
     const price = Number(source.price ?? 0);
 
+    const existingSpecs: Record<string, string | number | undefined> | undefined = source.specs;
+
     return {
         ...source,
         brand: source.brand ?? source.manufacturerName ?? source.modelName ?? source.categoryName ?? "",
@@ -33,10 +35,10 @@ const normalizeProduct = (source: Product | null): Product | null => {
         stock: source.stock ?? availableQty,
         availableQty,
         images: source.images ?? [],
-        specs: source.specs ?? {
+        specs: existingSpecs ?? {
             model: source.modelName,
             manufacturer: source.manufacturerName,
-            architecture: source.specs?.architecture ?? source.architectureName,
+            architecture: source.architectureName,
             category: source.categoryName,
             seller: source.sellerName,
         },
@@ -165,7 +167,7 @@ const SingleProduct = () => {
         <div className='flex-1'>
             {/* BREADCRUMBS */}
             <div className='px-8 py-4'>
-               <BreadcrumbSection />
+                <BreadcrumbSection />
             </div>
 
             {/* PRODUCT DETAILS */}
@@ -267,17 +269,17 @@ const SingleProduct = () => {
 
                         <span className='text-gray-700'>{stockCount} in stock</span>
                     </div>
-                    
+
                     <hr className="border-gray-300" />
 
                     {/* CTA BUTTONS */}
                     <ProductActions
-                                            id={product.id}
-                                            name={product.name}
-                                            price={product.price}
-                                            image={product.images?.[0] || "/image.jpg"}
-                                            stock={stockCount}
-                                            brand={product.brand ?? product.manufacturerName ?? ""}
+                        id={product.id}
+                        name={product.name}
+                        price={product.price}
+                        image={product.images?.[0] || "/image.jpg"}
+                        stock={stockCount}
+                        brand={product.brand ?? product.manufacturerName ?? ""}
                     />
 
                     <hr className="border-gray-300" />

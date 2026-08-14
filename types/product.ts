@@ -25,6 +25,7 @@ export type Product = {
     date: string;
     images: string[];
   }>;
+  architectureName?: string;
   specs?: Record<string, string | number | undefined>;
 };
 
