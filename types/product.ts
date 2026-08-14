@@ -4,6 +4,10 @@ export type Product = {
   description?: string;
   modelName?: string;
   manufacturerName?: string;
+  categoryId?: number;
+  categoryName?: string;
+  sellerId?: number;
+  sellerName?: string;
   price: number;
   availableQty?: number;
   images?: string[];
@@ -22,4 +26,9 @@ export type Product = {
     images: string[];
   }>;
   specs?: Record<string, string | number | undefined>;
+};
+
+export type CategoryOption = {
+  id: string | number;
+  name: string;
 };

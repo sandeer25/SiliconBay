@@ -1,51 +1,47 @@
 import { Product } from "@/types/product";
-
-const API_BASE = "/api/products";
+import { requestBackend } from "@/lib/backend";
+import { CategoryOption } from "@/types/product";
 
 export const productService = {
   async getFeaturedProducts(): Promise<Product[]> {
-    const response = await fetch(`${API_BASE}/featured`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      cache: "no-store", // Ensure fresh data
-    });
-
-    if (!response.ok) throw new Error("Failed to fetch featured products");
-
-    const data = await response.json();
+    const data = await requestBackend<{ products?: Product[] }>("/products/featured");
     return data.products || [];
   },
 
   async getBestSellerProducts(): Promise<Product[]> {
-    const response = await fetch(`/api/backend/products/best-sellers`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      cache: "no-store",
-    });
-
-    if (!response.ok) throw new Error("Failed to fetch best seller products");
-
-    const data = await response.json();
+    const data = await requestBackend<{ products?: Product[] }>("/products/best-sellers");
     return data.products || [];
   },
 
   async getProductById(id: string | number): Promise<Product | null> {
-    const response = await fetch(`/api/backend/products/${id}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      cache: "no-store",
+    const data = await requestBackend<{ product?: Product }>(`/products/${id}`);
+    return data.product || null;
+  },
+
+  async getMyProducts(): Promise<Product[]> {
+    const data = await requestBackend<{ products?: Product[] }>("/products/mine");
+    return data.products || [];
+  },
+
+  async getCategories(): Promise<CategoryOption[]> {
+    const data = await requestBackend<{ categories?: CategoryOption[] }>("/categories");
+    return data.categories || [];
+  },
+
+  async createProduct(formData: FormData): Promise<Product | null> {
+    const data = await requestBackend<{ product?: Product }>("/products", {
+      method: "POST",
+      body: formData,
     });
+    return data.product || null;
+  },
 
-    if (!response.ok) return null;
-
-    const data = await response.json();
-    return data.product || data || null;
+  async updateProduct(id: string | number, formData: FormData): Promise<Product | null> {
+    const data = await requestBackend<{ product?: Product }>(`/products/${id}`, {
+      method: "PUT",
+      body: formData,
+    });
+    return data.product || null;
   },
 
 

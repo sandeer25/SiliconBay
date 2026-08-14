@@ -1,7 +1,8 @@
+"use client";
+
 import Image from 'next/image';
 import Link from 'next/link';
 
-import { Products } from '@/constants/DummyData';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import BreadcrumbSection from '@/components/BreadcrumbSection';
@@ -12,20 +13,152 @@ import RatingBreakdown from '@/components/RatingBreakdown';
 import ReviewFilter from '@/components/ReviewFilter';
 import { Input } from '@/components/ui/input';
 import { productService } from '@/lib/services/productService';
-import { notFound } from 'next/navigation';
 import ProductActions from '@/components/ProductActions';
+import { Product } from '@/types/product';
+import { useEffect, useMemo, useState } from 'react';
+import { useParams } from 'next/navigation';
 
+const normalizeProduct = (source: Product | null): Product | null => {
+    if (!source) {
+        return null;
+    }
 
-interface PageProps {
-    params: Promise<{ id: string }>
-}
+    const availableQty = Number(source.availableQty ?? source.stock ?? 0);
+    const price = Number(source.price ?? 0);
 
-const SingleProduct = async ({ params }: PageProps) => {
-    const { id } = await params;
-    const product = (await productService.getProductById(id)) ?? Products.find((prod) => prod.id === id);
+    return {
+        ...source,
+        brand: source.brand ?? source.manufacturerName ?? source.modelName ?? source.categoryName ?? "",
+        price,
+        stock: source.stock ?? availableQty,
+        availableQty,
+        images: source.images ?? [],
+        specs: source.specs ?? {
+            model: source.modelName,
+            manufacturer: source.manufacturerName,
+            architecture: source.specs?.architecture ?? source.architectureName,
+            category: source.categoryName,
+            seller: source.sellerName,
+        },
+        rating: source.rating,
+        reviews: source.reviews ?? [],
+    };
+};
+
+const collectSimilarProducts = (products: Product[], currentId: string): Product[] => {
+    const seen = new Set<string>();
+
+    return products
+        .filter((product) => String(product.id) !== currentId)
+        .filter((product) => {
+            const key = String(product.id);
+            if (seen.has(key)) {
+                return false;
+            }
+            seen.add(key);
+            return true;
+        })
+        .slice(0, 6)
+        .map((product) => normalizeProduct(product))
+        .filter((product): product is Product => product !== null);
+};
+
+const SingleProduct = () => {
+    const params = useParams<{ id: string }>();
+    const id = useMemo(() => String(params?.id ?? ""), [params]);
+    const [product, setProduct] = useState<Product | null>(null);
+    const [similarProducts, setSimilarProducts] = useState<Product[]>([]);
+    const [loading, setLoading] = useState(() => Boolean(id));
+    const [loadError, setLoadError] = useState(() => (id ? "" : "Product id is missing."));
+
+    useEffect(() => {
+        if (!id) {
+            return;
+        }
+
+        let active = true;
+
+        const loadProduct = async () => {
+            try {
+                setLoading(true);
+                setLoadError("");
+
+                const [productResponse, featuredProducts, bestSellerProducts] = await Promise.all([
+                    productService.getProductById(id),
+                    productService.getFeaturedProducts().catch(() => []),
+                    productService.getBestSellerProducts().catch(() => []),
+                ]);
+
+                if (!active) {
+                    return;
+                }
+
+                const normalizedProduct = normalizeProduct(productResponse);
+
+                if (!normalizedProduct) {
+                    setProduct(null);
+                    setSimilarProducts([]);
+                    setLoadError("The backend did not return a product payload for this item.");
+                    return;
+                }
+
+                setProduct(normalizedProduct);
+                setSimilarProducts(
+                    collectSimilarProducts(
+                        [...featuredProducts, ...bestSellerProducts]
+                            .map((item) => normalizeProduct(item))
+                            .filter((item): item is Product => item !== null),
+                        id,
+                    )
+                );
+            } catch {
+                if (!active) {
+                    return;
+                }
+
+                setProduct(null);
+                setSimilarProducts([]);
+                setLoadError("Unable to load this product right now.");
+            } finally {
+                if (active) {
+                    setLoading(false);
+                }
+            }
+        };
+
+        loadProduct();
+
+        return () => {
+            active = false;
+        };
+    }, [id]);
+
+    const ratingAverage = product?.rating?.average ?? 0;
+    const ratingCount = product?.rating?.count ?? 0;
+    const stockCount = Number(product?.stock ?? product?.availableQty ?? 0);
+    const description = product?.description?.trim() || "This product currently has no description from the backend.";
+
+    if (loading) {
+        return (
+            <div className="flex-1 px-8 py-16">
+                <div className="max-w-2xl rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-gray-600">
+                    Loading product details...
+                </div>
+            </div>
+        );
+    }
 
     if (!product) {
-        notFound();
+        return (
+            <div className="flex-1 px-8 py-16">
+                <div className="max-w-2xl rounded-2xl border border-dashed border-gray-300 bg-white p-8">
+                    <h1 className="text-2xl font-bold">Product not available</h1>
+                    <p className="mt-2 text-gray-600">
+                        {loadError || "The backend did not return a product payload for this item."}
+                    </p>
+                </div>
+            </div>
+        );
     }
 
     return (
@@ -39,30 +172,27 @@ const SingleProduct = async ({ params }: PageProps) => {
             <div className='grid md:grid-cols-2 gap-8 px-8'>
                 <div>
                     <div className="sticky top-2">
-                        <ProductImageGallery images={product?.images || []} />
+                        <ProductImageGallery images={product.images || []} />
                     </div>
                 </div>
 
                 <div className="space-y-5">
                     {/* PRODUCT NAME */}
-                    <h1 className="text-3xl font-bold">{product?.name}</h1>
+                    <h1 className="text-3xl font-bold">{product.name}</h1>
 
                     <hr className="border-gray-300" />
 
                     {/* BRAND + RATING */}
                     <div className="flex items-center gap-4">
-                        <Image src="/products/currentsensor.jpg" alt="Brand Logo" width={64} height={64} className="border rounded-full w-16 h-16 object-cover" />
+                        <Image src={product.images?.[0] || "/image.jpg"} alt="Product image" width={64} height={64} className="border rounded-full w-16 h-16 object-cover" />
 
                         <div className="grid">
                             <Link href="#" className="hover:underline font-semibold text-lg flex items-center gap-1">
-                                Texas Instruments <span className="text-gray-500 text-sm">(1471)</span>
+                                {product.manufacturerName || product.brand || "Seller"}
+                                <span className="text-gray-500 text-sm">{product.sellerName ? `(${product.sellerName})` : ""}</span>
                             </Link>
                             <div className="flex items-center gap-2 text-sm">
-                                {/* <span className="text-yellow-500 text-lg">★★★★☆</span>
-                                <span className="text-gray-500">(3200 Reviews)</span> */}
-
-                                <Link href="#" className="flex items-center underline"> Seller&apos;s other items </Link>
-                                <Link href="#" className="flex items-center underline"> Contact Seller </Link>
+                                <span className="text-gray-500">{product.categoryName || "Product details from backend"}</span>
                             </div>
                         </div>
                     </div>
@@ -71,17 +201,18 @@ const SingleProduct = async ({ params }: PageProps) => {
 
                     {/* PRICE */}
                     <div className="flex items-center">
-                        <h1 className="text-3xl font-bold">${product?.price ?? 0}</h1>
-                        <span className="text-gray-500 line-through text-lg ml-4">$399.00</span>
-                        <Badge className="ml-4 bg-green-100 text-green-800 px-2 py-1 rounded"> {product?.discount ?? 0}% OFF </Badge>
+                        <h1 className="text-3xl font-bold">${product.price.toFixed(2)}</h1>
+                        {product.discount ? (
+                            <Badge className="ml-4 bg-green-100 text-green-800 px-2 py-1 rounded"> {product.discount}% OFF </Badge>
+                        ) : null}
                     </div>
 
                     <hr className="border-gray-300" />
 
                     {/* PRODUCT RATING */}
                     <div className="flex items-center gap-2">
-                        <StarRating rating={3.4} size={24} />
-                        <span className="text-gray-500">({product?.rating?.count} Reviews)</span>
+                        <StarRating rating={ratingAverage} size={24} />
+                        <span className="text-gray-500">{ratingCount > 0 ? `(${ratingCount} Reviews)` : "No reviews yet"}</span>
                     </div>
 
                     <hr className="border-gray-300" />
@@ -90,40 +221,40 @@ const SingleProduct = async ({ params }: PageProps) => {
                     <div className="grid gap-3 w-80 text-sm">
                         <div className="flex gap-2">
                             <div className="w-2/3 font-semibold text-gray-700">Brand</div>
-                            <div className="w-full">{product?.brand}</div>
+                            <div className="w-full">{product.brand || product.manufacturerName || "N/A"}</div>
                         </div>
 
                         <div className="flex gap-2">
                             <div className="w-2/3 font-semibold text-gray-700">Architecture</div>
-                            <div className="w-full">{product?.specs?.architecture}</div>
+                            <div className="w-full">{product.specs?.architecture ?? product.architectureName ?? "N/A"}</div>
                         </div>
                         <div className="flex gap-2">
                             <div className="w-2/3 font-semibold text-gray-700">Flash Memory</div>
-                            <div className="w-full">{product?.specs?.flashMemory} KB</div>
+                            <div className="w-full">{product.specs?.flashMemory ?? "N/A"}</div>
                         </div>
                         <div className="flex gap-2">
                             <div className="w-2/3 font-semibold text-gray-700">GPIO Pins</div>
-                            <div className="w-full">{product?.specs?.gpioPins}</div>
+                            <div className="w-full">{product.specs?.gpioPins ?? "N/A"}</div>
                         </div>
                         <div className="flex gap-2">
                             <div className="w-2/3 font-semibold text-gray-700">Package</div>
-                            <div className="w-full">{product?.specs?.package}</div>
+                            <div className="w-full">{product.specs?.package ?? "N/A"}</div>
                         </div>
                         <div className="flex gap-2">
                             <div className="w-2/3 font-semibold text-gray-700">Clock Speed</div>
-                            <div className="w-full">{product?.specs?.clockSpeed} MHz</div>
+                            <div className="w-full">{product.specs?.clockSpeed ?? "N/A"}</div>
                         </div>
                         <div className="flex gap-2">
                             <div className="w-2/3 font-semibold text-gray-700">RAM</div>
-                            <div className="w-full">{product?.specs?.ram} KB</div>
+                            <div className="w-full">{product.specs?.ram ?? "N/A"}</div>
                         </div>
                         <div className="flex gap-2">
                             <div className="w-2/3 font-semibold text-gray-700">Operating Voltage</div>
-                            <div className="w-full">{product?.specs?.operatingVoltage}</div>
+                            <div className="w-full">{product.specs?.operatingVoltage ?? "N/A"}</div>
                         </div>
                         <div className="flex gap-2">
                             <div className="w-2/3 font-semibold text-gray-700">Temperature Range</div>
-                            <div className="w-full">{product?.specs?.temperatureRange} °C</div>
+                            <div className="w-full">{product.specs?.temperatureRange ?? "N/A"}</div>
                         </div>
                     </div>
 
@@ -134,19 +265,19 @@ const SingleProduct = async ({ params }: PageProps) => {
                         <div className="font-semibold text-gray-700">Quantity:</div>
                         <Input type="number" defaultValue={1} min={1} className="w-20" />
 
-                        <span className='text-gray-700'>{product?.stock} in stock</span>
+                        <span className='text-gray-700'>{stockCount} in stock</span>
                     </div>
                     
                     <hr className="border-gray-300" />
 
                     {/* CTA BUTTONS */}
                     <ProductActions
-                      id={product.id}
-                      name={product.name}
-                      price={product.price}
-                      image={product.images?.[0] || "/products/microcontroller.jpg"}
-                      stock={product.stock ?? product.availableQty}
-                      brand={product.brand ?? product.manufacturerName}
+                                            id={product.id}
+                                            name={product.name}
+                                            price={product.price}
+                                            image={product.images?.[0] || "/image.jpg"}
+                                            stock={stockCount}
+                                            brand={product.brand ?? product.manufacturerName ?? ""}
                     />
 
                     <hr className="border-gray-300" />
@@ -168,15 +299,7 @@ const SingleProduct = async ({ params }: PageProps) => {
                     <div className="space-y-2">
                         <h2 className="text-lg font-semibold">Product Description</h2>
                         <p className="text-gray-700 text-sm leading-6">
-                            Lorem ipsum, dolor sit amet consectetur adipisicing elit. Veritatis culpa nulla aliquam deleniti ex ipsam laudantium a voluptates totam excepturi, hic dolorem molestiae iure provident iste odit velit illo eius!
-
-                            <br /><br />
-
-                            Lorem ipsum dolor sit amet consectetur, adipisicing elit. Qui, ducimus eum! Distinctio optio eveniet maiores quidem, soluta expedita nesciunt tempora repellat beatae id, porro vel ratione natus? Obcaecati, atque nisi.
-
-                            <br /><br />
-
-                            Lorem ipsum dolor, sit amet consectetur adipisicing elit. At et sequi alias sint unde, quas nisi aliquam atque omnis nihil voluptatem dolorem quaerat consectetur non facere dignissimos aperiam porro nulla.
+                            {description}
                         </p>
                     </div>
                 </div>
@@ -184,7 +307,7 @@ const SingleProduct = async ({ params }: PageProps) => {
 
             {/* SIMILAR PRODUCTS */}
             <div className='my-12'>
-                <ProductSection section="Similar Products" products={Products.slice(0, 6)} />
+                <ProductSection section="Similar Products" products={similarProducts} />
             </div>
 
             {/* REVIEW SECTION */}
@@ -193,13 +316,13 @@ const SingleProduct = async ({ params }: PageProps) => {
                     <div className='sticky top-2'>
                         <h2 className="text-2xl font-bold mb-4">Customer Reviews</h2>
                         <div className="flex items-center gap-4 mb-6">
-                            <span className="text-6xl font-bold">4.2</span>
+                            <span className="text-6xl font-bold">{ratingAverage.toFixed(1)}</span>
                             <div>
-                                <StarRating rating={4.2} size={24} />
-                                <div className="text-gray-500">Based on 3,200 reviews</div>
+                                <StarRating rating={ratingAverage} size={24} />
+                                <div className="text-gray-500">{ratingCount > 0 ? `Based on ${ratingCount} reviews` : "No reviews available yet"}</div>
                             </div>
                         </div>
-                        <RatingBreakdown data={{ 5: 1800, 4: 900, 3: 300, 2: 150, 1: 50 }} />
+                        <RatingBreakdown data={{ 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }} />
 
                         <hr className="border-gray-300 my-6" />
 
@@ -219,7 +342,7 @@ const SingleProduct = async ({ params }: PageProps) => {
                 </div>
 
                 <div className='flex-1 min-w-0'>
-                    <ReviewFilter reviews={product?.reviews || []} />
+                    <ReviewFilter reviews={product.reviews || []} />
                 </div>
             </div>
         </div>

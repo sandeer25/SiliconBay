@@ -53,6 +53,7 @@ export default async function Home() {
               src="/image.jpg"
               alt="service-hero"
               fill
+              sizes="(max-width: 1024px) 100vw, 50vw"
               className="object-cover rounded-2xl"
             />
           </div>

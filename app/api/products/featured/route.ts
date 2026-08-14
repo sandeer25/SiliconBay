@@ -1,14 +1,14 @@
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/products/featured`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
+    // Build an absolute URL using the request origin so server-side fetch
+    // can reliably call the frontend proxy which forwards to the backend.
+    const origin = new URL(request.url).origin;
+    const response = await fetch(`${origin}/api/backend/products/featured`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+    });
 
     const data = await response.json();
 
