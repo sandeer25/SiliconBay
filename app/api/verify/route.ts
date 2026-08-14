@@ -3,9 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/verify`;
-        
-        const response = await fetch(apiUrl, {
+        const origin = new URL(request.url).origin;
+
+        const response = await fetch(`${origin}/api/backend/verify`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),

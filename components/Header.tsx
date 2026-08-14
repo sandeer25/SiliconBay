@@ -1,36 +1,70 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Heart, Menu, Search, X } from "lucide-react";
 import Cart from "./Cart";
 import { useWishlist } from "./providers";
+import { AUTH_EVENT, notifyAuthChange } from "@/lib/auth";
+
+type StoredUser = {
+  firstName: string;
+  lastName: string;
+};
+
+const AUTH_SNAPSHOT: StoredUser | null = null;
+let authCacheKey = "";
+let authCache: StoredUser | null = AUTH_SNAPSHOT;
+
+const subscribeToAuth = (callback: () => void) => {
+  if (typeof window === "undefined") {
+    return () => undefined;
+  }
+
+  window.addEventListener(AUTH_EVENT, callback);
+  window.addEventListener("storage", callback);
+  return () => {
+    window.removeEventListener(AUTH_EVENT, callback);
+    window.removeEventListener("storage", callback);
+  };
+};
+
+const readStoredUser = () => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const token = localStorage.getItem("token");
+  const userData = localStorage.getItem("user");
+  const nextCacheKey = `${token ?? ""}|${userData ?? ""}`;
+
+  if (nextCacheKey === authCacheKey) {
+    return authCache;
+  }
+
+  if (!token || !userData) {
+    authCacheKey = nextCacheKey;
+    authCache = null;
+    return null;
+  }
+
+  try {
+    const parsedUser = JSON.parse(userData) as StoredUser;
+
+    authCacheKey = nextCacheKey;
+    authCache = parsedUser;
+    return authCache;
+  } catch {
+    authCacheKey = nextCacheKey;
+    authCache = null;
+    return null;
+  }
+};
 
 const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { itemCount: wishlistItemCount } = useWishlist();
-
-  const [user] = useState<{
-    firstName: string;
-    lastName: string;
-  } | null>(() => {
-    if (typeof window === "undefined") {
-      return null;
-    }
-
-    const token = localStorage.getItem("token");
-    const userData = localStorage.getItem("user");
-
-    if (!token || !userData) {
-      return null;
-    }
-
-    try {
-      return JSON.parse(userData) as { firstName: string; lastName: string };
-    } catch {
-      return null;
-    }
-  });
+  const user = useSyncExternalStore(subscribeToAuth, readStoredUser, () => AUTH_SNAPSHOT);
 
   return (
     <header>
@@ -53,6 +87,7 @@ const Header = () => {
                 onClick={() => {
                   localStorage.removeItem("token");
                   localStorage.removeItem("user");
+                  notifyAuthChange();
                   window.location.href = "/";
                 }}
               >
@@ -152,6 +187,7 @@ const Header = () => {
                     onClick={() => {
                       localStorage.removeItem("token");
                       localStorage.removeItem("user");
+                      notifyAuthChange();
                       window.location.href = "/";
                     }}
                   >

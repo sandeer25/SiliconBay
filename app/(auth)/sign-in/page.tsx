@@ -29,6 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
+import { notifyAuthChange } from "@/lib/auth";
 
 const signInSchema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -41,8 +42,7 @@ const SignIn = () => {
   const [isLoading, setIsLoading] = React.useState(false);
 
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const returnTo = searchParams.get("returnTo") ?? "/";
+  const returnTo = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("returnTo") ?? "/" : "/";
 
   const form = useForm<SignInValues>({
     resolver: zodResolver(signInSchema),
@@ -78,6 +78,7 @@ const SignIn = () => {
 
       localStorage.setItem("token", responseData.token);
       localStorage.setItem("user", JSON.stringify(responseData.user));
+      notifyAuthChange();
 
       toast.success("Signed in successfully!");
 
