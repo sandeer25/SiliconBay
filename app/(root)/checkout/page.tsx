@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Script from "next/script";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -78,7 +78,7 @@ const CheckoutPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [sdkLoaded, setSdkLoaded] = useState(false);
   const [message, setMessage] = useState("");
-  const [customer, setCustomer] = useState<CheckoutCustomer>({
+  const [customer, setCustomer] = useState<CheckoutCustomer>(() => ({
     firstName: "",
     lastName: "",
     email: "",
@@ -86,14 +86,8 @@ const CheckoutPage = () => {
     address: "",
     city: "",
     country: "Sri Lanka",
-  });
-
-  useEffect(() => {
-    setCustomer((current) => ({
-      ...current,
-      ...readUserProfile(),
-    }));
-  }, []);
+    ...readUserProfile(),
+  }));
 
   const orderSummary = useMemo(
     () => items.map((item) => `${item.quantity}x ${item.name}`).join(", "),
@@ -176,9 +170,13 @@ const CheckoutPage = () => {
         (paymentResponse.data as Record<string, unknown> | undefined) ??
         paymentResponse;
 
+      if (typeof window !== "undefined") {
+        localStorage.setItem("siliconbay-pending-order-id", orderId);
+      }
+
       if (window.payhere?.startPayment && sdkLoaded) {
         window.payhere.onCompleted = (completedOrderId) => {
-          router.push(`/checkout/return?order_id=${encodeURIComponent(completedOrderId)}`);
+          router.push(`/checkout/return?order_id=${encodeURIComponent(completedOrderId || orderId)}`);
         };
 
         window.payhere.onDismissed = () => {

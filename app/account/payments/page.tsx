@@ -29,7 +29,6 @@ const Payments = () => {
   const [instruments, setInstruments] = useState<SavedInstrument[]>([]);
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [loadMessage, setLoadMessage] = useState("Connect the payments and transactions APIs to populate this dashboard.");
   const [form, setForm] = useState({
     holderName: "",
     cardNumber: "",
@@ -39,57 +38,54 @@ const Payments = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      try {
-        const [instrumentsResponse, transactionsResponse] = await Promise.all([
-          requestBackend<Record<string, unknown>>("/payments/instruments"),
-          requestBackend<Record<string, unknown>>("/transactions"),
-        ]);
+      const [instrumentsResult, transactionsResult] = await Promise.allSettled([
+        requestBackend<Record<string, unknown>>("/payments/instruments"),
+        requestBackend<Record<string, unknown>>("/transactions"),
+      ]);
 
-        const rawInstruments = Array.isArray(instrumentsResponse)
-          ? instrumentsResponse
-          : Array.isArray((instrumentsResponse as { instruments?: unknown[] }).instruments)
-            ? (instrumentsResponse as { instruments: unknown[] }).instruments
-            : [];
+      const instrumentsResponse = instrumentsResult.status === "fulfilled" ? instrumentsResult.value : null;
+      const transactionsResponse = transactionsResult.status === "fulfilled" ? transactionsResult.value : null;
 
-        const rawTransactions = Array.isArray(transactionsResponse)
-          ? transactionsResponse
-          : Array.isArray((transactionsResponse as { transactions?: unknown[] }).transactions)
-            ? (transactionsResponse as { transactions: unknown[] }).transactions
-            : [];
+      const rawInstruments = Array.isArray(instrumentsResponse)
+        ? instrumentsResponse
+        : Array.isArray((instrumentsResponse as { instruments?: unknown[] } | null)?.instruments)
+          ? (instrumentsResponse as { instruments: unknown[] }).instruments
+          : [];
 
-        setInstruments(rawInstruments.map((instrument, index) => {
-          const current = instrument as Record<string, unknown>;
+      const rawTransactions = Array.isArray(transactionsResponse)
+        ? transactionsResponse
+        : Array.isArray((transactionsResponse as { transactions?: unknown[] } | null)?.transactions)
+          ? (transactionsResponse as { transactions: unknown[] }).transactions
+          : [];
 
-          return {
-            id: current.id ?? index + 1,
-            type: String(current.type ?? current.paymentMethod ?? ""),
-            brand: String(current.brand ?? current.cardBrand ?? ""),
-            last4: String(current.last4 ?? current.cardNo ?? "").slice(-4),
-            expiry: String(current.expiry ?? current.cardExpiry ?? ""),
-            holderName: String(current.holderName ?? current.cardHolderName ?? ""),
-            isDefault: Boolean(current.isDefault ?? index === 0),
-            addedDate: String(current.addedDate ?? current.createdAt ?? ""),
-          };
-        }));
+      setInstruments(rawInstruments.map((instrument, index) => {
+        const current = instrument as Record<string, unknown>;
 
-        setTransactions(rawTransactions.map((transaction, index) => {
-          const current = transaction as Record<string, unknown>;
+        return {
+          id: String(current.id ?? index + 1),
+          type: String(current.type ?? current.paymentMethod ?? ""),
+          brand: String(current.brand ?? current.cardBrand ?? ""),
+          last4: String(current.last4 ?? current.cardNo ?? "").slice(-4),
+          expiry: String(current.expiry ?? current.cardExpiry ?? ""),
+          holderName: String(current.holderName ?? current.cardHolderName ?? ""),
+          isDefault: Boolean(current.isDefault ?? index === 0),
+          addedDate: String(current.addedDate ?? current.createdAt ?? ""),
+        };
+      }));
 
-          return {
-            id: String(current.id ?? current.transactionId ?? `TXN-${index + 1}`),
-            date: String(current.date ?? current.createdAt ?? ""),
-            description: String(current.description ?? current.note ?? ""),
-            method: String(current.method ?? current.paymentMethod ?? ""),
-            amount: String(current.amount ?? current.total ?? ""),
-            status: String(current.status ?? ""),
-          };
-        }));
-        setLoadMessage("");
-      } catch {
-        setInstruments([]);
-        setTransactions([]);
-        setLoadMessage("No payment instruments or transaction history is available yet.");
-      }
+      setTransactions(rawTransactions.map((transaction, index) => {
+        const current = transaction as Record<string, unknown>;
+
+        return {
+          id: String(current.id ?? current.transactionId ?? `TXN-${index + 1}`),
+          date: String(current.date ?? current.createdAt ?? ""),
+          description: String(current.description ?? current.note ?? ""),
+          method: String(current.method ?? current.paymentMethod ?? ""),
+          amount: String(current.amount ?? current.total ?? ""),
+          status: String(current.status ?? ""),
+        };
+      }));
+
     };
 
     loadData();
@@ -129,12 +125,6 @@ const Payments = () => {
         <h1 className="text-2xl font-bold text-gray-900">Payment Methods</h1>
         <p className="text-sm text-gray-600 mt-1">Manage saved instruments and review transaction history</p>
       </div>
-
-      {loadMessage ? (
-        <div className="bg-amber-50 border border-amber-200 p-4 text-sm text-amber-900">
-          {loadMessage}
-        </div>
-      ) : null}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => (

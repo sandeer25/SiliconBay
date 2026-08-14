@@ -7,6 +7,39 @@ import { CheckCircle2, Package, Truck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { requestBackend } from "@/lib/backend";
 
+const formatAmount = (value: unknown, currency = "LKR") => {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return String(value ?? "Unavailable");
+  }
+
+  const locale = currency === "LKR" ? "en-LK" : "en-US";
+
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(parsed);
+};
+
+const formatDate = (value: unknown) => {
+  const parsed = new Date(String(value ?? ""));
+
+  if (Number.isNaN(parsed.getTime())) {
+    return String(value ?? "Unavailable");
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(parsed);
+};
+
 const OrderDetail = () => {
   const params = useParams<{ id: string }>();
   const [order, setOrder] = useState<Record<string, unknown> | null>(null);
@@ -35,6 +68,21 @@ const OrderDetail = () => {
           </div>
         </div>
 
+        <div className="grid md:grid-cols-3 gap-4 mb-6 text-sm">
+          <div className="rounded-xl border p-4">
+            <p className="text-gray-500">Order Total</p>
+            <p className="font-semibold mt-1">{formatAmount(order?.total ?? order?.amount, String(order?.currency ?? "LKR"))}</p>
+          </div>
+          <div className="rounded-xl border p-4">
+            <p className="text-gray-500">Placed On</p>
+            <p className="font-semibold mt-1">{formatDate(order?.date ?? order?.createdAt)}</p>
+          </div>
+          <div className="rounded-xl border p-4">
+            <p className="text-gray-500">Item Count</p>
+            <p className="font-semibold mt-1">{String((Array.isArray(order?.items) ? order.items.length : order?.itemsCount ?? 0) as number)}</p>
+          </div>
+        </div>
+
         <div className="grid md:grid-cols-2 gap-4 text-sm">
           <div className="rounded-xl border p-4">
             <p className="text-gray-500">Status</p>
@@ -42,7 +90,7 @@ const OrderDetail = () => {
           </div>
           <div className="rounded-xl border p-4">
             <p className="text-gray-500">Amount</p>
-            <p className="font-semibold mt-1">{String(order?.total ?? order?.amount ?? "$0.00")}</p>
+            <p className="font-semibold mt-1">{formatAmount(order?.total ?? order?.amount, String(order?.currency ?? "LKR"))}</p>
           </div>
           <div className="rounded-xl border p-4">
             <p className="text-gray-500">Payment</p>
@@ -57,6 +105,27 @@ const OrderDetail = () => {
         <div className="mt-6 rounded-xl border bg-gray-50 p-4 text-sm text-gray-700 flex items-start gap-3">
           <Truck className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
           <p>If this order was paid through PayHere, the backend IPN handler updates the order and transaction records after checksum verification.</p>
+        </div>
+
+        <div className="mt-6 rounded-xl border p-4">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Items in this order</h2>
+          <div className="space-y-3">
+            {Array.isArray(order?.items) && order.items.length > 0 ? order.items.map((item) => {
+              const current = item as Record<string, unknown>;
+
+              return (
+                <div key={String(current.id ?? current.productId ?? current.stockId)} className="flex items-center justify-between gap-4 rounded-xl border bg-white p-4 text-sm">
+                  <div>
+                    <p className="font-medium text-gray-900">{String(current.productName ?? "Unnamed product")}</p>
+                    <p className="text-gray-500">Qty {String(current.quantity ?? current.qty ?? 1)} · Item total {formatAmount(current.subtotal ?? current.price, String(order?.currency ?? "LKR"))}</p>
+                  </div>
+                  <p className="font-semibold text-gray-900 text-nowrap">{formatAmount(current.subtotal ?? current.price, String(order?.currency ?? "LKR"))}</p>
+                </div>
+              );
+            }) : (
+              <p className="text-sm text-gray-600">No item details are available for this order.</p>
+            )}
+          </div>
         </div>
 
         <div className="mt-6 flex gap-3">

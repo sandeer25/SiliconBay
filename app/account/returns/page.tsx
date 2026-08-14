@@ -21,7 +21,6 @@ const Returns = () => {
   const [returns, setReturns] = useState<ReturnRow[]>([]);
   const [query, setQuery] = useState("");
   const [form, setForm] = useState({ orderId: "", reason: "Defective item", description: "" });
-  const [loadMessage, setLoadMessage] = useState("Loading return requests from the backend.");
 
   useEffect(() => {
     const loadReturns = async () => {
@@ -48,10 +47,8 @@ const Returns = () => {
             requestDate: String(item.requestDate ?? item.createdAt ?? ""),
           };
         }));
-        setLoadMessage("");
       } catch {
         setReturns([]);
-        setLoadMessage("No return requests are available yet.");
       }
     };
 
@@ -83,12 +80,6 @@ const Returns = () => {
         <h1 className="text-2xl font-bold text-gray-900">Returns & Refunds</h1>
         <p className="text-sm text-gray-600 mt-1">Create and track return requests</p>
       </div>
-
-      {loadMessage ? (
-        <div className="bg-amber-50 border border-amber-200 p-4 text-sm text-amber-900">
-          {loadMessage}
-        </div>
-      ) : null}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => (

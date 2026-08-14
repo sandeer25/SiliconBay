@@ -2,17 +2,22 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { CheckCircle2, LoaderCircle } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { requestBackend } from "@/lib/backend";
 
+type OrderPayload = Record<string, unknown>;
+
 const ReturnPage = () => {
-  const searchParams = useSearchParams();
-  const orderId = searchParams.get("order_id") ?? searchParams.get("orderId") ?? "";
+  const orderId = typeof window !== "undefined"
+    ? (new URLSearchParams(window.location.search).get("order_id")
+      ?? new URLSearchParams(window.location.search).get("orderId")
+      ?? localStorage.getItem("siliconbay-pending-order-id")
+      ?? "")
+    : "";
   const [status, setStatus] = useState<string>("Loading");
-  const [order, setOrder] = useState<Record<string, unknown> | null>(null);
+  const [order, setOrder] = useState<OrderPayload | null>(null);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -24,9 +29,13 @@ const ReturnPage = () => {
       }
 
       try {
-        const response = await requestBackend<Record<string, unknown>>(`/orders/${orderId}`);
-        setOrder(response.order ?? response.data ?? response);
-        setStatus(String((response.order ?? response.data ?? response).status ?? "Processed"));
+        const response = await requestBackend<{ order?: OrderPayload; data?: OrderPayload }>(`/orders/${orderId}`);
+        const payload = response?.order ?? response?.data ?? response;
+        setOrder(payload ?? null);
+        setStatus(String(payload?.status ?? "Processed"));
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("siliconbay-pending-order-id");
+        }
       } catch {
         setStatus("Processed");
         setMessage("Payment was redirected back from PayHere. The final status will be visible once the backend IPN completes.");

@@ -10,10 +10,63 @@ type OrderRow = {
   id: string;
   date: string;
   items: number;
+  summary: string;
   status: string;
   total: string;
+  currency?: string;
   payment: string;
   tracking: string;
+};
+
+const formatAmount = (value: string | number | undefined, currency = "LKR") => {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return String(value ?? "Unavailable");
+  }
+
+  const locale = currency === "LKR" ? "en-LK" : "en-US";
+
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(parsed);
+};
+
+const formatDate = (value: string) => {
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return value || "Unavailable";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(parsed);
+};
+
+const summarizeItems = (items: unknown): string => {
+  if (!Array.isArray(items) || items.length === 0) {
+    return "No items listed";
+  }
+
+  const labels = items.slice(0, 2).map((item) => {
+    const current = item as Record<string, unknown>;
+    const name = String(current.productName ?? current.name ?? "Item");
+    const quantity = Number(current.quantity ?? current.qty ?? 1);
+
+    return `${name} × ${Number.isFinite(quantity) && quantity > 0 ? quantity : 1}`;
+  });
+
+  const remaining = items.length - labels.length;
+
+  return remaining > 0 ? `${labels.join(", ")} +${remaining} more` : labels.join(", ");
 };
 
 const normalizeOrders = (value: unknown): OrderRow[] => {
@@ -27,34 +80,55 @@ const normalizeOrders = (value: unknown): OrderRow[] => {
 
   return rawOrders.map((order, index) => {
     const current = order as Record<string, unknown>;
+    const itemsValue = current.items;
+    const itemsCount = Array.isArray(itemsValue)
+      ? itemsValue.length
+      : Number(current.itemsCount ?? current.itemCount ?? current.quantity ?? 1);
 
     return {
       id: String(current.id ?? current.orderId ?? current.order_id ?? `ORD-${index + 1}`),
       date: String(current.date ?? current.createdAt ?? current.orderDate ?? ""),
-      items: Number(current.items ?? current.itemCount ?? current.quantity ?? 1),
-      status: String(current.status ?? current.statusMessage ?? ""),
-      total: String(current.total ?? current.amount ?? ""),
-      payment: String(current.paymentMethod ?? current.method ?? current.payment ?? ""),
-      tracking: String(current.tracking ?? current.trackingNumber ?? current.paymentId ?? ""),
+      items: Number.isFinite(itemsCount) ? itemsCount : 0,
+      summary: summarizeItems(itemsValue),
+      status: normalizeStatus(String(current.status ?? current.statusMessage ?? "")),
+      total: String(current.total ?? current.transactionAmount ?? current.amount ?? ""),
+      currency: String(current.currency ?? "LKR"),
+      payment: String(current.paymentMethod ?? current.method ?? current.payment ?? "PayHere"),
+      tracking: String(current.tracking ?? current.trackingNumber ?? current.paymentId ?? current.transactionId ?? ""),
     };
   });
+};
+
+const normalizeStatus = (status: string) => {
+  const upper = status.toUpperCase();
+
+  if (upper === "PACKING" || upper === "PENDING") {
+    return "Processing";
+  }
+
+  if (upper === "COMPLETED" || upper === "DELIVERED" || upper === "RECEIVED") {
+    return "Delivered";
+  }
+
+  if (upper === "CANCELED" || upper === "CANCELLED") {
+    return "Cancelled";
+  }
+
+  return status || "Processing";
 };
 
 const Orders = () => {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
-  const [loadMessage, setLoadMessage] = useState("Connect the backend orders API to populate this view.");
 
   useEffect(() => {
     const loadOrders = async () => {
       try {
         const response = await requestBackend<Record<string, unknown>>("/orders");
         setOrders(normalizeOrders(response));
-        setLoadMessage("");
       } catch {
         setOrders([]);
-        setLoadMessage("No backend orders data is available yet.");
       }
     };
 
@@ -63,7 +137,7 @@ const Orders = () => {
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
-      const matchesQuery = [order.id, order.date, String(order.total)]
+      const matchesQuery = [order.id, order.date, order.summary, String(order.total)]
         .join(" ")
         .toLowerCase()
         .includes(query.toLowerCase());
@@ -86,12 +160,6 @@ const Orders = () => {
         <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
         <p className="text-sm text-gray-600 mt-1">View and manage all your orders</p>
       </div>
-
-      {loadMessage ? (
-        <div className="bg-amber-50 border border-amber-200 p-4 text-sm text-amber-900">
-          {loadMessage}
-        </div>
-      ) : null}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => {
@@ -150,16 +218,21 @@ const Orders = () => {
                 <th className="px-4 py-3 text-left font-medium text-gray-600 uppercase tracking-wider">Status</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600 uppercase tracking-wider">Payment</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600 uppercase tracking-wider">Tracking</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600 uppercase tracking-wider">Total</th>
+                <th className="px-4 py-3 text-right font-medium text-gray-600 uppercase tracking-wider">Order Total</th>
                 <th className="px-4 py-3 text-center font-medium text-gray-600 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y">
               {filteredOrders.map((order) => (
                 <tr key={order.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-900 text-nowrap">{order.id}</td>
-                  <td className="px-4 py-3 text-gray-600 text-nowrap">{order.date || "Unavailable"}</td>
-                  <td className="px-4 py-3 text-gray-600">{order.items}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900 text-nowrap">#{order.id}</td>
+                  <td className="px-4 py-3 text-gray-600 text-nowrap">{formatDate(order.date)}</td>
+                  <td className="px-4 py-3 text-gray-600">
+                    <div className="space-y-1">
+                      <p className="font-medium text-gray-900">{order.items} item{order.items === 1 ? "" : "s"}</p>
+                      <p className="max-w-90 text-xs leading-5 text-gray-500">{order.summary}</p>
+                    </div>
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-1 font-medium text-nowrap ${order.status === "Delivered" ? "bg-green-100 text-green-700" : order.status === "In Transit" ? "bg-blue-100 text-blue-700" : order.status === "Processing" ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>
                       {order.status || "Unavailable"}
@@ -167,7 +240,7 @@ const Orders = () => {
                   </td>
                   <td className="px-4 py-3 text-gray-600 text-nowrap">{order.payment || "Unavailable"}</td>
                   <td className="px-4 py-3 text-gray-600 text-nowrap">{order.tracking || "Unavailable"}</td>
-                  <td className="px-4 py-3 font-semibold text-right text-nowrap">{order.total || "Unavailable"}</td>
+                  <td className="px-4 py-3 font-semibold text-right text-nowrap">{formatAmount(order.total, order.currency)}</td>
                   <td className="px-4 py-3 text-center">
                     <Link href={`/account/orders/${encodeURIComponent(order.id)}`} className="inline-flex items-center text-amber-600 hover:text-amber-700 hover:bg-amber-50 p-2">
                       <Eye className="w-4 h-4" />
